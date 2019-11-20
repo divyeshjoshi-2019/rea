@@ -1,0 +1,42 @@
+---
+- name: Validate Cloudformation Template - ec2.yaml
+  command: "{{ item }}"
+  with_items:
+  - cfn-lint -r "{{ REGION }}" -t roles/ec2/files/ec2.yaml
+  - yamllint -s roles/ec2/files/ec2.yaml
+  tags:
+  - validate
+  - validate-ec2
+
+- name: Deploying {{ PROJECT }} Applcation Stack
+  cloudformation:
+    stack_name: "{{ APPSTACK }}"
+    state: "{{ STATE }}"
+    region: "{{ REGION }}"
+    termination_protection: "{{ TERMINATIONPROTECTION }}"
+    disable_rollback: true
+    stack_policy: "stack_policy.json"
+    template: "roles/ec2/files/ec2.yaml"
+    template_parameters:
+      AmiId: "{{ LINUXAMI }}"
+      KeyName: "{{ KEYPAIRNAME }}"
+      IAMStack: "{{ IAMSTACK }}"
+      ENIStack: "{{ ENISTACK }}"
+      EC2InstanceType: "{{ INSTANCETYPE }}"
+      VpcId: "{{ VPCID }}"
+      SubnetId: "{{ SUBNETID }}"
+    tags:
+      Name: "{{ APPSTACK }}"
+      Description: "{{ PROJECT }} App Stack"
+      Project: "{{ PROJECT }}"
+      Repository: "{{ REPOSITORY }}"
+  register: logs
+  tags:
+  - deploy
+  - deploy-ec2
+
+- debug:
+    var: logs
+  tags:
+  - deploy
+  - deploy-ec2

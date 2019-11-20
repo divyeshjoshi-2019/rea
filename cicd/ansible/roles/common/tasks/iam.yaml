@@ -1,0 +1,35 @@
+---
+- name: Validate Cloudformation Template - iam.yaml
+  command: "{{ item }}"
+  with_items:
+  - cfn-lint -r "{{ REGION }}" -t roles/common/files/iam.yaml
+  - yamllint -s roles/common/files/iam.yaml
+  tags:
+  - validate
+  - validate-iam
+
+- name: Deploying {{ PROJECT }} IAM Stack
+  cloudformation:
+    stack_name: "{{ IAMSTACK }}"
+    state: "{{ STATE }}"
+    region: "{{ REGION }}"
+    disable_rollback: true
+    template: "roles/common/files/iam.yaml"
+    template_parameters:
+      Project: "{{ PROJECT }}"
+    termination_protection: "{{ TERMINATIONPROTECTION }}"
+    tags:
+      Name: "{{ IAMSTACK }}"
+      Description: "{{ PROJECT }} IAM Stack"
+      Repository: "{{REPOSITORY}}"
+      Project: "{{ PROJECT }}"
+  register: logs
+  tags:
+    - deploy
+    - deploy-iam
+
+- debug:
+    var: logs
+  tags:
+    - deploy
+    - deploy-iam

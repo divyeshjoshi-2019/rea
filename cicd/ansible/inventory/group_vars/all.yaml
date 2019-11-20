@@ -1,0 +1,15 @@
+---
+PROJECT: rea
+STACKSUFFIX: "{{ BranchName |default('master') |replace('/','')|replace('-','')|truncate(17,True, '')}}"
+IAMSTACK: "{{ PROJECT }}-iam-{{ STACKSUFFIX }}"
+SECURITYSTACK: "{{ PROJECT }}-security-{{ STACKSUFFIX }}"
+APPSTACK: "{{ PROJECT }}-app-{{ STACKSUFFIX }}" 
+ENISTACK: "{{ PROJECT }}-eni-{{ STACKSUFFIX }}" 
+SNSSTACK: "{{ PROJECT }}-sns-{{ STACKSUFFIX }}"
+VPCID: vpc-0348fc835b18bded7
+SUBNETID: subnet-0a0089092e530df6b
+CIDRIPSSH: "10.0.0.113/32"
+STATE: "{{ CFN_STATE | default ('present') }}" 
+REGION: "{{ lookup('env','AWS_DEFAULT_REGION') | default ('ap-southeast-2', true) }}" 
+LINUXAMI: "ami-08a74056dfd30c986"
+REPOSITORY: "https://github.com/rea-cruitment/simple-sinatra-app"

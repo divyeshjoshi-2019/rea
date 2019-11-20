@@ -1,0 +1,36 @@
+---
+- name: Validate Cloudformation Template - security.yaml
+  command: "{{ item }}"
+  with_items:
+  - cfn-lint -r "{{ REGION }}" -t roles/common/files/security.yaml
+  - yamllint -s roles/common/files/security.yaml
+  tags:
+  - validate
+  - validate-security
+
+- name: Deploying {{ PROJECT }} Security Stack
+  cloudformation:
+    stack_name: "{{ SECURITYSTACK }}"
+    state: "{{ STATE }}"
+    region: "{{ REGION }}"
+    disable_rollback: true
+    template: "roles/common/files/security.yaml"    
+    termination_protection: "{{ TERMINATIONPROTECTION }}"
+    template_parameters:
+      VpcId: "{{ VPCID }}"
+      CidrIPSSH: "{{ CIDRIPSSH }}"
+    tags:
+      Name: "{{ SECURITYSTACK }}"
+      Description: "{{ PROJECT }} Security Stack"
+      Repository: "{{REPOSITORY}}"
+      Project: "{{ PROJECT }}"
+  register: logs
+  tags:
+    - deploy
+    - deploy-security
+
+- debug:
+    var: logs
+  tags:
+    - deploy
+    - deploy-security

@@ -1,0 +1,10 @@
+---
+- hosts: ansible-execution
+  become: no                  # yamllint disable-line rule:truthy
+  gather_facts: false
+  roles:
+    - role: common
+      tags: common
+
+    - role: ec2
+      tags: ec2

@@ -1,0 +1,10 @@
+---
+- name: Deploy ENI
+  include: eni.yaml
+  tags:
+    - eni
+
+- name: Deploy EC2
+  include: ec2.yaml
+  tags:
+    - app

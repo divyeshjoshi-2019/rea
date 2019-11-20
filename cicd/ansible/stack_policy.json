@@ -1,0 +1,26 @@
+{
+    "Statement": [
+        {
+            "Effect": "Deny",
+            "Action": [
+                "Update:Replace",
+                "Update:Delete"
+            ],
+            "Principal": "*",
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "ResourceType": [
+                        "AWS::EC2::Instance"
+                    ]
+                }
+            }
+        },
+        {
+            "Effect": "Allow",
+            "Action": "Update:*",
+            "Principal": "*",
+            "Resource": "*"
+        }
+    ]
+}

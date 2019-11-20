@@ -1,0 +1,33 @@
+---
+- name: Validate Cloudformation Template - sns.yaml
+  command: "{{ item }}"
+  with_items:
+  - cfn-lint -r "{{ REGION }}" -t roles/common/files/sns.yaml
+  - yamllint -s roles/common/files/sns.yaml
+  tags:
+  - validate
+  - validate-sns
+
+- name: Deploying {{ PROJECT }} SNS Stack
+  cloudformation:
+    stack_name: "{{ SNSSTACK }}"
+    state: "{{ STATE }}"
+    region: "{{ REGION }}"
+    disable_rollback: true
+    template: "roles/common/files/sns.yaml"    
+    termination_protection: "{{ TERMINATIONPROTECTION }}"
+    tags:
+      Name: "{{ SNSSTACK }}"
+      Description: "{{ PROJECT }} SNS Stack"
+      Repository: "{{REPOSITORY}}"
+      Project: "{{ PROJECT }}"
+  register: logs
+  tags:
+    - deploy
+    - deploy-sns
+
+- debug:
+    var: logs
+  tags:
+    - deploy
+    - deploy-sns

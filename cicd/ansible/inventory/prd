@@ -1,0 +1,5 @@
+[ansible-execution]
+localhost ansible_connection=local
+
+[prd:children]
+ansible-execution

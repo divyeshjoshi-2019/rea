@@ -1,0 +1,44 @@
+---
+Description: Creates common topics for alarms to be routed to teams
+
+Resources:
+
+  Topic:
+    Type: "AWS::SNS::Topic"
+    Properties:
+      TopicName: Support
+
+  SecurityTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      PolicyDocument:
+        Id: DefaultSNSPolicy
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DefaultSNSStatement
+            Effect: Allow
+            Principal:
+              AWS: "*"
+            Action:
+              - sns:Publish
+              - sns:SetTopicAttributes
+              - sns:AddPermission
+              - sns:RemovePermission
+              - sns:DeleteTopic
+              - sns:Subscribe
+              - sns:ListSubscriptionsByTopic
+              - sns:Receive
+            Resource: !Ref Topic
+            Condition:
+              StringEquals:
+                AWS:SourceOwner: !Ref AWS::AccountId
+      Topics:
+        - !Ref Topic
+
+
+Outputs:
+  Support:
+    Description: Use this topic to send alarms to support
+    Value: !Ref Topic
+    Export:
+      Name: "support-sns-topic"

@@ -1,0 +1,15 @@
+---
+- name: Deploy IAM
+  include: iam.yaml
+  tags:
+    - iam
+  
+- name: Deploy Security
+  include: security.yaml
+  tags:
+    - security
+
+- name: Deploy SNS
+  include: sns.yaml
+  tags:
+    - sns

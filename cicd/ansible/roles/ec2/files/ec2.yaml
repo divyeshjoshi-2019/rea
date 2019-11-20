@@ -1,0 +1,214 @@
+---
+# yamllint disable rule:line-length
+AWSTemplateFormatVersion: 2010-09-09
+Description: "Rapid7 Console: App Stack"
+
+Parameters:
+  IAMStack:
+    Type: String
+    Description: Environment we are building
+  ENIStack:
+    Type: String
+    Description: shared ENI stack
+  KeyName:
+    Type: String
+    Description: EC2 Key Pair
+  EC2InstanceType:
+    Type: String
+    Description: EC2 instance type
+  AmiId:
+    Type: AWS::EC2::Image::Id
+    Description: AMI ID for the instance
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: Vpc ID for the instance
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Subnet ID for the instance
+
+Resources:
+  NLBLoadBalancer:
+    Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+    Properties:
+      Type: network
+      Scheme: internet-facing
+      LoadBalancerAttributes:
+        - Key: load_balancing.cross_zone.enabled
+          Value: "true"
+      Subnets:
+        - !Ref SubnetId
+  NLBListener80:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref NLBTargetGroup9292
+      LoadBalancerArn: !Ref NLBLoadBalancer
+      Port: 80
+      Protocol: TCP
+
+  NLBTargetGroup9292:
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Properties:
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPort: '9292'
+      HealthCheckProtocol: TCP
+      HealthyThresholdCount: 3
+      UnhealthyThresholdCount: 3
+      Port: 9292
+      Protocol: TCP
+      TargetType: instance
+      Targets:
+        - Id: !Ref Instance
+      VpcId: !Ref VpcId
+
+  ### DNS ### To be used within VPC network ###
+  HostedZone:
+    Type: AWS::Route53::HostedZone
+    Properties:
+      HostedZoneConfig:
+        Comment: Hosted zone for rea
+      Name: app.cloud
+      VPCs:
+        - VPCId: !Ref VpcId
+          VPCRegion: "ap-southeast-2"
+
+  RecordSet:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      AliasTarget:
+        DNSName: !GetAtt NLBLoadBalancer.DNSName
+        HostedZoneId: !GetAtt NLBLoadBalancer.CanonicalHostedZoneID
+      HostedZoneId: !Ref  HostedZone
+      Name: !Join
+        - '.'
+        - - rea
+          - app.cloud
+      Type: A
+
+  Instance:
+    Type: AWS::EC2::Instance
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT60M
+    Properties:
+      DisableApiTermination: true
+      IamInstanceProfile:
+        Fn::ImportValue: !Sub ${IAMStack}-instanceprofile
+      ImageId: !Ref AmiId
+      InstanceType: !Ref EC2InstanceType
+      KeyName: !Ref KeyName
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 75
+            VolumeType: gp2
+      NetworkInterfaces:
+        - DeviceIndex: "0"
+          NetworkInterfaceId:
+            Fn::ImportValue: !Sub ${ ENIStack }-eni-a
+      UserData: !Base64
+        # yamllint disable
+        Fn::Sub: |
+            #!/bin/bash -x
+            yum -y update
+            yum -y install python-pip
+            yum -y install rubygems
+            yum install -y git
+            gem install bundler --version '<2.0'
+
+            # Install Cfn Bootstrap Helper Scripts
+            pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz
+            export PATH=$PATH:/opt/aws/bin:/usr/local/bin
+            
+            #Application Install
+            cd ~/
+            git clone https://github.com/rea-cruitment/simple-sinatra-app.git
+            cd simple-sinatra-app
+            bundle install
+            bundle exec rackup -D
+
+            #Cfn Signal
+            cfn-signal -e $? --stack ${AWS::StackName} --resource Instance --region ${AWS::Region}
+
+  CPUAlarmWARNING: 
+    Type: AWS::CloudWatch::Alarm
+    DeletionPolicy: Retain
+    Properties:
+      AlarmDescription: High CPU Usage 90%
+      AlarmActions:
+        - !ImportValue support-sns-topic
+      OKActions:
+        - !ImportValue support-sns-topic
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: 900
+      EvaluationPeriods: 1
+      Threshold: 90
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+      - Name: InstanceId
+        Value: !Ref Instance
+
+  CPUAlarmCRITICAL: 
+    Type: AWS::CloudWatch::Alarm
+    DeletionPolicy: Retain 
+    Properties:
+      AlarmDescription: High CPU Usage 95%
+      AlarmActions:
+        - !ImportValue support-sns-topic
+      OKActions:
+        - !ImportValue support-sns-topic
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: 900
+      EvaluationPeriods: 2
+      Threshold: 95
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+      - Name: InstanceId
+        Value: !Ref Instance
+
+  SystemStatusAlarmCRITICAL:
+    Type: AWS::CloudWatch::Alarm
+    DeletionPolicy: Retain
+    Properties:
+      AlarmDescription: Instance recovery process has been triggered because of failed System Status Check
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed_System
+      Statistic: Minimum
+      Period: 60
+      EvaluationPeriods: 2
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: 0
+      AlarmActions:
+        - !ImportValue support-sns-topic
+      OKActions:
+        - !ImportValue support-sns-topic
+      Dimensions:
+      - Name: InstanceId
+        Value: !Ref Instance
+
+  InstanceStatusAlarmCRITICAL: 
+    Type: AWS::CloudWatch::Alarm
+    DeletionPolicy: Retain
+    Properties:
+      AlarmDescription: Instance Status Check Failed - please investigate
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed_Instance
+      Statistic: Minimum
+      Period: 60
+      EvaluationPeriods: 3
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: 0
+      AlarmActions:
+        - !ImportValue support-sns-topic
+      OKActions:
+        - !ImportValue support-sns-topic
+      Dimensions:
+      - Name: InstanceId
+        Value: !Ref Instance
+
+ 

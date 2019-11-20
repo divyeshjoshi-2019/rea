@@ -1,0 +1,36 @@
+---
+- name: Validate Cloudformation Template - eni.yaml
+  command: "{{ item }}"
+  with_items:
+  - cfn-lint -r "{{ REGION }}" -t roles/ec2/files/eni.yaml
+  - yamllint -s roles/ec2/files/eni.yaml
+  tags:
+  - validate
+  - validate-eni
+
+- name: Deploying {{ PROJECT }} ENI Stack
+  cloudformation:
+    stack_name: "{{ ENISTACK }}"
+    state: "{{ STATE }}"
+    region: "{{ REGION }}"
+    disable_rollback: true
+    template: "roles/ec2/files/eni.yaml"    
+    termination_protection: "{{ TERMINATIONPROTECTION }}"
+    template_parameters:
+      SecurityStack: " {{ SECURITYSTACK }}"
+      SubnetId: " {{ SUBNETID }}"
+    tags:
+      Name: "{{ ENISTACK }}"
+      Description: "{{ PROJECT }} ENI Stack"
+      Repository: "{{REPOSITORY}}"
+      Project: "{{ PROJECT }}"
+  register: logs
+  tags:
+    - deploy
+    - deploy-eni
+
+- debug:
+    var: logs
+  tags:
+    - deploy
+    - deploy-eni

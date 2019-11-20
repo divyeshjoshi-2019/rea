@@ -1,0 +1,31 @@
+---
+# yamllint disable rule:line-length
+AWSTemplateFormatVersion: 2010-09-09
+Description: "REA: ENI Stack"
+
+Parameters:
+  SecurityStack:
+    Type: String
+    Description: Security Stack
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Subnet ID for the instance
+
+Resources:
+  ENIa:
+    Type: "AWS::EC2::NetworkInterface"
+    Properties:
+      Description: ENI for REA in AZ-A
+      SubnetId: !Ref SubnetId
+      GroupSet:
+        - Fn::ImportValue: !Sub '${SecurityStack}-sg'
+
+Outputs:
+  ENI:
+    Export:
+      Name: !Sub '${AWS::StackName}-eni-a'
+    Value: !Ref ENIa
+  IP:
+    Export:
+      Name: !Sub '${AWS::StackName}-ipaddress'
+    Value: !GetAtt ENIa.PrimaryPrivateIpAddress
